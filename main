@@ -1,0 +1,110 @@
+
+import cv2
+from PIL import Image,ImageDraw
+class AnalizImage:
+    def __init__(self,path):
+        self.path=path
+        self.image = cv2.imread(self.path)
+        self.resized = cv2.resize(self.image, [200, 200], interpolation=cv2.INTER_AREA)
+        self.diff =23
+
+    def decodeColor(self):
+
+        arrPixels = []
+
+        for i in range(200):
+            for j in range(200):
+                bgr = self.resized[:, :, :3][i][j]
+                arrPixels.append(bgr)
+
+        sum_b = int(0)
+        sum_g = int(0)
+        sum_r = int(0)
+        average_b = {'old': arrPixels[0][0], 'new': []}
+        average_g = {'old': arrPixels[0][1], 'new': []}
+        average_r = {'old': arrPixels[0][2], 'new': []}
+        arrColors=[]
+        count = int(0)
+
+        for i in range(4000):
+            count += 1
+            sum_b += arrPixels[i][0]
+
+            average_b['new'] = sum_b // count
+
+            sum_g += arrPixels[i][1]
+
+            average_g['new'] = sum_g // count
+
+            sum_r += arrPixels[i][2]
+            average_r['new'] = sum_r // count
+
+
+            if (abs(average_r['new'] - average_r['old']) >= self.diff) or (abs(average_g['new'] - average_g['old']) >= self.diff) or (
+                    abs(average_b['new'] - average_b['old']) >= self.diff):
+
+                arrColors.append([average_r['new'],average_g['new'],average_b['new'],count])
+
+                count=0
+                sum_b=0
+                sum_g=0
+                sum_r=0
+                average_b['old'] = average_b['new']
+                average_g['old'] = average_g['new']
+                average_r['old'] = average_r['new']
+
+        return arrColors
+    def popColor(self,arrColors):
+        i=0
+        while i <len(arrColors)-1:
+            if (abs(arrColors[i][0]-arrColors[i+1][0])<=self.diff)or abs(arrColors[i][1]-arrColors[i+1][1])<=self.diff or abs(arrColors[i][2]-arrColors[i+1][2])<=self.diff:
+                arrColors[i][3]=arrColors[i][3]+arrColors[i+1][3]
+                arrColors.pop(i+1)
+                i=0
+
+            i += 1
+        return arrColors
+
+    def sortWithCount(self,arrColors):
+        funcSort=lambda x: x[3]
+        sortArray=sorted(arrColors,key=funcSort,reverse=True)
+        return sortArray
+class ColorScheme:
+    def __init__(self,path,arrColors):
+        self.width=1140
+        self.height=1520
+        self.originalPhoto=Image.open(path)
+        self.newPhoto=Image.new(mode="RGB",size=(self.width,self.height),color=(255,255,255))
+        self.arrColors=arrColors
+    def generateImage(self):
+        y=int(0)
+        x=int(0)
+        self.originalPhoto = self.originalPhoto.resize((1140, 760))
+        self.newPhoto.paste(self.originalPhoto)
+        draw = ImageDraw.Draw(self.newPhoto)
+        if len(self.arrColors)<=20:
+            i=0
+            while len(self.arrColors)<=20:
+                self.arrColors.append(self.arrColors[i])
+                i+=1
+        for i in range(20):
+
+            if i%5==0:
+                y+=150
+                x=0
+            draw.rectangle((75+(x),760+y,275+x,860+y),fill=(self.arrColors[i][0],self.arrColors[i][1],self.arrColors[i][2]))
+            x += 200
+        self.newPhoto.show()
+
+
+if __name__ == "__main__":
+    path='test.jpg'
+    testImage=AnalizImage(path)
+    arrColors=testImage.decodeColor()
+    arrColors=testImage.popColor(arrColors)
+    arrColors=testImage.sortWithCount(arrColors)
+
+    print(arrColors,len(arrColors))
+
+    testImage=ColorScheme(path,arrColors)
+    testImage.generateImage()
